@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Preview - {{ file.file_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2><i class="bi bi-eye"></i> Preview: {{ file.file_name }}</h2>
+                <p class="text-muted mb-0">
+                    <span class="badge bg-secondary">{{ File.format_file_size(file_size or 0) }}</span>
+                    <span class="ms-2 text-muted">{{ file.created_at.strftime('%Y-%m-%d %H:%M') if file.created_at else 'Unknown' }}</span>
+                </p>
+            </div>
+            <div>
+                <a href="{{ url_for('file.download_file', file_id=file.id) }}" class="btn btn-primary">
+                    <i class="bi bi-download"></i> Download
+                </a>
+                <a href="{{ url_for('file.dashboard') }}" class="btn btn-outline-secondary ms-2">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-body">
+                <!-- Image Preview -->
+                {% if file_type == 'image' %}
+                <div class="text-center p-3">
+                    <div class="mb-3">
+                        <small class="text-muted">Debug: Image path = {{ file_path or file_url }}</small>
+                    </div>
+                    <img src="{{ file_path or file_url }}" 
+                         alt="{{ file.file_name }}" 
+                         class="img-fluid rounded shadow"
+                         style="max-height: 70vh; object-fit: contain; border: 1px solid #dee2e6;"
+                         onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2RkZCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjOTk5Ij5JbWFnZSBOb3QgRm91bmQ8L3RleHQ+PC9zdmc+'; this.alt='Image failed to load';">
+                    <div class="mt-3">
+                        <small class="text-muted">{{ file.file_name }} ({{ File.format_file_size(file_size or 0) }})</small>
+                    </div>
+                    <div class="mt-2">
+                        <a href="{{ file_path or file_url }}" target="_blank" class="btn btn-sm btn-outline-primary">Open Image in New Tab</a>
+                    </div>
+                </div>
+                
+                <!-- PDF Preview -->
+                {% elif file_type == 'pdf' %}
+                <div class="text-center">
+                    <div class="mb-3">
+                        <h5><i class="bi bi-file-earmark-pdf text-danger"></i> {{ file.file_name }}</h5>
+                        <small class="text-muted">{{ File.format_file_size(file_size or 0) }}</small>
+                    </div>
+                    <iframe src="{{ file_path or file_url }}" 
+                            width="100%" 
+                            height="600px"
+                            class="rounded border"
+                            title="{{ file.file_name }}"
+                            style="border: 1px solid #dee2e6;">
+                    </iframe>
+                </div>
+                
+                <!-- Text/Code Preview -->
+                {% elif file_type in ['text', 'code'] %}
+                <div class="code-preview">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5><i class="bi bi-file-text"></i> {{ file.file_name }}</h5>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="copyContent()">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleWrap()">
+                                <i class="bi bi-text-wrap"></i> Wrap
+                            </button>
+                        </div>
+                    </div>
+                    <div class="border rounded" style="max-height: 500px; overflow-y: auto;">
+                        <pre id="codeContent" class="bg-dark text-light p-3 mb-0" style="white-space: pre-wrap; word-wrap: break-word; margin: 0; border: none; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.5;">{{ content|e }}</pre>
+                    </div>
+                </div>
+                
+                <!-- Document Preview (Not Available) -->
+                {% elif file_type == 'document' %}
+                <div class="text-center py-5">
+                    <i class="bi bi-file-earmark-text text-muted" style="font-size: 4rem;"></i>
+                    <h4 class="mt-3 text-muted">Document Preview Not Available</h4>
+                    <p class="text-muted">This file type cannot be previewed directly.</p>
+                    <p class="text-muted">Please download the file to view its contents.</p>
+                    <a href="{{ url_for('file.download_file', file_id=file.id) }}" class="btn btn-primary">
+                        <i class="bi bi-download"></i> Download File
+                    </a>
+                </div>
+                
+                <!-- Archive Preview -->
+                {% elif file_type == 'archive' %}
+                <div class="text-center py-5">
+                    <i class="bi bi-file-earmark-zip text-muted" style="font-size: 4rem;"></i>
+                    <h4 class="mt-3 text-muted">Archive Preview Not Available</h4>
+                    <p class="text-muted">Archive files cannot be previewed directly.</p>
+                    <p class="text-muted">Please download the file to extract its contents.</p>
+                    <a href="{{ url_for('file.download_file', file_id=file.id) }}" class="btn btn-primary">
+                        <i class="bi bi-download"></i> Download Archive
+                    </a>
+                </div>
+                
+                <!-- Video Preview -->
+                {% elif file_type == 'video' %}
+                <div class="text-center py-5">
+                    <i class="bi bi-file-play text-muted" style="font-size: 4rem;"></i>
+                    <h4 class="mt-3 text-muted">Video Preview Not Available</h4>
+                    <p class="text-muted">Video files cannot be previewed directly.</p>
+                    <p class="text-muted">Please download the file to view its contents.</p>
+                    <a href="{{ url_for('file.download_file', file_id=file.id) }}" class="btn btn-primary">
+                        <i class="bi bi-download"></i> Download Video
+                    </a>
+                </div>
+                
+                <!-- Audio Preview -->
+                {% elif file_type == 'audio' %}
+                <div class="text-center py-5">
+                    <i class="bi bi-file-music text-muted" style="font-size: 4rem;"></i>
+                    <h4 class="mt-3 text-muted">Audio Preview Not Available</h4>
+                    <p class="text-muted">Audio files cannot be previewed directly.</p>
+                    <p class="text-muted">Please download the file to play its contents.</p>
+                    <a href="{{ url_for('file.download_file', file_id=file.id) }}" class="btn btn-primary">
+                        <i class="bi bi-download"></i> Download Audio
+                    </a>
+                </div>
+                
+                <!-- Unknown File Type -->
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-file-earmark text-muted" style="font-size: 4rem;"></i>
+                    <h4 class="mt-3 text-muted">Preview Not Available</h4>
+                    <p class="text-muted">This file type cannot be previewed directly.</p>
+                    <p class="text-muted">Please download the file to view its contents.</p>
+                    <a href="{{ url_for('file.download_file', file_id=file.id) }}" class="btn btn-primary">
+                        <i class="bi bi-download"></i> Download File
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if file_type in ['text', 'code'] %}
+<script>
+function copyContent() {
+    const content = document.getElementById('codeContent').textContent;
+    navigator.clipboard.writeText(content).then(() => {
+        // Show feedback
+        const button = event.target.closest('button');
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check"></i> Copied!';
+        button.classList.remove('btn-outline-secondary');
+        button.classList.add('btn-success');
+        
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-secondary');
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy text: ', err);
+    });
+}
+
+function toggleWrap() {
+    const content = document.getElementById('codeContent');
+    if (content.style.whiteSpace === 'pre-wrap') {
+        content.style.whiteSpace = 'pre';
+        content.style.wordWrap = 'normal';
+    } else {
+        content.style.whiteSpace = 'pre-wrap';
+        content.style.wordWrap = 'break-word';
+    }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl+C to copy
+    if (e.ctrlKey && e.key === 'c') {
+        e.preventDefault();
+        copyContent();
+    }
+    // Ctrl+W to toggle wrap
+    if (e.ctrlKey && e.key === 'w') {
+        e.preventDefault();
+        toggleWrap();
+    }
+});
+{% endif %}
+{% endblock %}

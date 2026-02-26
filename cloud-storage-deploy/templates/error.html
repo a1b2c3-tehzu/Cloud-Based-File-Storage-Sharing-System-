@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Error - Cloud Storage System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-body text-center">
+                <i class="bi bi-exclamation-triangle text-danger" style="font-size: 4rem;"></i>
+                <h3 class="card-title mt-3">Error</h3>
+                
+                {% if message %}
+                    <p class="text-muted">{{ message }}</p>
+                {% else %}
+                    <p class="text-muted">An unexpected error occurred. Please try again later.</p>
+                {% endif %}
+                
+                <div class="mt-4">
+                    <a href="{{ url_for('file.dashboard') }}" class="btn btn-primary">
+                        <i class="bi bi-house"></i> Go to Dashboard
+                    </a>
+                    {% if not session.user_id %}
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary ms-2">
+                            <i class="bi bi-box-arrow-in-right"></i> Login
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

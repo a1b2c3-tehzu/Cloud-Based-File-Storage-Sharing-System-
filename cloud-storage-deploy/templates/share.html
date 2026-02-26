@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Share File - Cloud Storage System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <i class="bi bi-share text-info" style="font-size: 3rem;"></i>
+                    <h3 class="card-title mt-2">File Sharing</h3>
+                </div>
+                
+                {% if share_url %}
+                <!-- Share Link Generated -->
+                <div class="alert alert-success">
+                    <h6><i class="bi bi-check-circle"></i> Share Link Generated!</h6>
+                    <p class="mb-2">Your share link will expire on: <strong>{{ expiry_date.strftime('%Y-%m-%d %H:%M:%S') }}</strong></p>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="shareLink" class="form-label">Share Link</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="shareLink" value="{{ share_url }}" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyShareLink()">
+                            <i class="bi bi-clipboard"></i> Copy
+                        </button>
+                    </div>
+                    <div class="form-text">Anyone with this link can access your file until it expires.</div>
+                </div>
+                
+                <div class="text-center">
+                    <a href="{{ url_for('file.dashboard') }}" class="btn btn-primary">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+                {% endif %}
+                
+                {% if file_info and is_shared_access %}
+                <!-- Shared File Access -->
+                <div class="text-center">
+                    <i class="bi bi-file-earmark-text text-primary" style="font-size: 3rem;"></i>
+                    <h4 class="mt-3">{{ file_info.file_name }}</h4>
+                    <p class="text-muted">Shared file - Expires: {{ file_info.expiry_date.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                        <a href="{{ download_url }}" class="btn btn-primary btn-lg" download>
+                            <i class="bi bi-download"></i> Download File
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if not share_url and not is_shared_access %}
+                <!-- Default Share Page -->
+                <div class="text-center py-4">
+                    <i class="bi bi-share text-muted" style="font-size: 4rem;"></i>
+                    <h5 class="mt-3 text-muted">Share Your Files</h5>
+                    <p class="text-muted">Generate secure share links for your files with expiry dates.</p>
+                    <a href="{{ url_for('file.dashboard') }}" class="btn btn-primary">
+                        <i class="bi bi-folder"></i> Go to Dashboard
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if share_url %}
+<script>
+function copyShareLink() {
+    const shareLink = document.getElementById('shareLink');
+    shareLink.select();
+    shareLink.setSelectionRange(0, 99999);
+    
+    try {
+        document.execCommand('copy');
+        
+        // Show feedback
+        const button = event.target.closest('button');
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check"></i> Copied!';
+        button.classList.remove('btn-outline-secondary');
+        button.classList.add('btn-success');
+        
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-secondary');
+        }, 2000);
+    } catch (err) {
+        console.error('Failed to copy text: ', err);
+    }
+}
+</script>
+{% endif %}
+{% endblock %}

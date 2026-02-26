@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard - Cloud Storage System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2><i class="bi bi-graph-up"></i> Analytics Dashboard</h2>
+        <p class="text-muted">Monitor your storage usage and activity patterns</p>
+    </div>
+</div>
+
+<!-- Storage Overview -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-hdd"></i> Storage Usage</h5>
+                <div class="text-center">
+                    <div class="storage-chart-container">
+                        <canvas id="storageChart" width="200" height="200"></canvas>
+                    </div>
+                    <p class="mt-2">
+                        <strong id="storageUsed">0</strong> files<br>
+                        <span id="storageSize">0 MB</span> used
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-activity"></i> Activity Summary</h5>
+                <canvas id="activityChart" width="200" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-calendar-check"></i> Recent Activity</h5>
+                <div class="activity-list">
+                    {% if user_activity %}
+                        {% for activity in user_activity[:5] %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-primary">{{ activity.action_type }}</span>
+                            <span class="text-muted">{{ activity.total }} times</span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No recent activity</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Popular Files -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-star"></i> Popular Files</h5>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>File Name</th>
+                                <th>Total Access</th>
+                                <th>Downloads</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if popular_files %}
+                                {% for file in popular_files %}
+                                <tr>
+                                    <td>
+                                        <i class="bi-file-earmark text-muted"></i>
+                                        {{ file.file_name }}
+                                    </td>
+                                    <td>{{ file.access_count }}</td>
+                                    <td>{{ file.downloads }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info" onclick="viewFileDetails('{{ file.file_name }}')">
+                                            <i class="bi bi-eye"></i> Details
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No file activity yet</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Patterns -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-graph-up-arrow"></i> Upload Patterns (Last 30 Days)</h5>
+                <canvas id="uploadPatternChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-clock-history"></i> Login Frequency</h5>
+                <div class="login-stats">
+                    {% if login_frequency %}
+                        {% for login in login_frequency[:7] %}
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>{{ login.date }}</span>
+                            <span class="badge bg-success">{{ login.logins }} logins</span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No login data available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Storage Chart
+const storageCtx = document.getElementById('storageChart').getContext('2d');
+const storageChart = new Chart(storageCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Used', 'Available'],
+        datasets: [{
+            data: [0, 100],
+            backgroundColor: ['#667eea', '#e9ecef'],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+
+// Activity Chart
+const activityCtx = document.getElementById('activityChart').getContext('2d');
+const activityChart = new Chart(activityCtx, {
+    type: 'bar',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'Actions',
+            data: [],
+            backgroundColor: '#667eea'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+// Upload Pattern Chart
+const uploadCtx = document.getElementById('uploadPatternChart').getContext('2d');
+const uploadChart = new Chart(uploadCtx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'Uploads',
+            data: [],
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+// Load data from API
+fetch('/analytics/api/storage-chart')
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('storageUsed').textContent = data.files;
+        document.getElementById('storageSize').textContent = formatFileSize(data.used);
+        
+        storageChart.data.datasets[0].data = [data.percentage, 100 - data.percentage];
+        storageChart.update();
+    });
+
+fetch('/analytics/api/activity-chart')
+    .then(response => response.json())
+    .then(data => {
+        const labels = data.map(item => item.action);
+        const values = data.map(item => item.count);
+        
+        activityChart.data.labels = labels;
+        activityChart.data.datasets[0].data = values;
+        activityChart.update();
+    });
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function viewFileDetails(fileName) {
+    // Placeholder for file details modal
+    alert('File details for: ' + fileName);
+}
+</script>
+{% endblock %}

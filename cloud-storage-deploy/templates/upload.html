@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Upload File - Cloud Storage System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <i class="bi bi-cloud-upload text-primary" style="font-size: 3rem;"></i>
+                    <h3 class="card-title mt-2">Upload Files</h3>
+                    <p class="text-muted">Store your files securely in the cloud (multiple files supported)</p>
+                </div>
+                
+                <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                    <input type="hidden" name="folder_id" value="{{ folder_id or '' }}">
+                    <div class="mb-4">
+                        <label for="file" class="form-label">Choose Files</label>
+                        
+                        <!-- Drag and Drop Area -->
+                        <div id="dropZone" class="drop-zone mb-3">
+                            <div class="drop-zone-content">
+                                <i class="bi bi-cloud-upload display-4 text-primary"></i>
+                                <h5>Drag & Drop Files Here</h5>
+                                <p class="text-muted">or click to browse (select multiple files)</p>
+                                <input type="file" id="file" name="files" multiple>
+                            </div>
+                        </div>
+                        
+                        <div class="form-text">
+                            Allowed file types: txt, pdf, png, jpg, jpeg, gif, doc, docx, xls, xlsx, ppt, pptx, zip, rar
+                            <br>Maximum file size: 16MB
+                        </div>
+                    </div>
+                    
+                    <div id="filePreview" class="d-none">
+                        <div class="alert alert-info">
+                            <h6><i class="bi bi-info-circle"></i> Selected Files (<span id="fileCount">0</span>)</h6>
+                            <div id="fileList" class="mt-3">
+                                <!-- File list will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div id="uploadProgress" class="d-none">
+                        <div class="mb-3">
+                            <label class="form-label">Overall Upload Progress</label>
+                            <div class="progress">
+                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%">
+                                    <span id="progressText">0%</span>
+                                </div>
+                            </div>
+                            <small class="text-muted" id="uploadStatus">Preparing upload...</small>
+                        </div>
+                        
+                        <!-- Individual File Progress -->
+                        <div id="individualProgress" class="mt-3">
+                            <h6>Individual File Progress:</h6>
+                            <div id="fileProgressList">
+                                <!-- Individual file progress bars will be added here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary" id="uploadBtn">
+                            <i class="bi bi-cloud-upload"></i> Upload to Cloud
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('file.dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Progress Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Uploading File</h5>
+            </div>
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Uploading...</span>
+                </div>
+                <p class="mt-3">Please wait while your file is being uploaded to the cloud...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedFiles = [];
+
+// Handle file selection
+document.getElementById('file').addEventListener('change', function(e) {
+    selectedFiles = Array.from(e.target.files);
+    displayFilePreview();
+});
+
+// Display file preview
+function displayFilePreview() {
+    const filePreview = document.getElementById('filePreview');
+    const fileList = document.getElementById('fileList');
+    const fileCount = document.getElementById('fileCount');
+    
+    if (selectedFiles.length > 0) {
+        fileCount.textContent = selectedFiles.length;
+        
+        let fileListHTML = '<div class="list-group">';
+        selectedFiles.forEach((file, index) => {
+            const isValid = validateFile(file);
+            const statusClass = isValid ? 'text-success' : 'text-danger';
+            const statusIcon = isValid ? 'bi-check-circle' : 'bi-x-circle';
+            
+            fileListHTML += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi-file-earmark me-2"></i>
+                        <span class="${!isValid ? 'text-decoration-line-through' : ''}">${file.name}</span>
+                        <small class="text-muted ms-2">${formatFileSize(file.size)}</small>
+                    </div>
+                    <div>
+                        <i class="bi ${statusIcon} ${statusClass}"></i>
+                    </div>
+                </div>
+            `;
+        });
+        fileListHTML += '</div>';
+        
+        fileList.innerHTML = fileListHTML;
+        filePreview.classList.remove('d-none');
+    } else {
+        filePreview.classList.add('d-none');
+    }
+}
+
+// Validate individual file
+function validateFile(file) {
+    const maxSize = 16 * 1024 * 1024; // 16MB
+    const allowedExtensions = ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar'];
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    
+    return file.size <= maxSize && allowedExtensions.includes(fileExtension);
+}
+
+// Handle form submission
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Validate all files
+    const validFiles = selectedFiles.filter(file => validateFile(file));
+    
+    if (validFiles.length === 0) {
+        alert('No valid files selected. Please check file size and type.');
+        return;
+    }
+    
+    // Show progress
+    showUploadProgress(validFiles);
+    
+    // Submit form
+    this.submit();
+});
+
+// Show upload progress
+function showUploadProgress(files) {
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const fileProgressList = document.getElementById('fileProgressList');
+    
+    uploadProgress.classList.remove('d-none');
+    
+    // Create individual progress bars
+    let progressHTML = '';
+    files.forEach((file, index) => {
+        progressHTML += `
+            <div class="mb-2">
+                <small class="text-muted">${file.name}</small>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar progress-bar-striped" id="fileProgress${index}" 
+                         role="progressbar" style="width: 0%">0%</div>
+                </div>
+            </div>
+        `;
+    });
+    fileProgressList.innerHTML = progressHTML;
+    
+    // Simulate progress
+    simulateOverallProgress(files.length);
+}
+
+// Simulate overall progress
+function simulateOverallProgress(fileCount) {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const uploadStatus = document.getElementById('uploadStatus');
+    
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += Math.random() * 10;
+        if (progress >= 90) {
+            progress = 90;
+            clearInterval(interval);
+            uploadStatus.textContent = 'Finalizing upload...';
+        } else {
+            uploadStatus.textContent = `Uploading ${fileCount} files... ${Math.round(progress)}%`;
+        }
+        
+        progressBar.style.width = progress + '%';
+        progressText.textContent = Math.round(progress) + '%';
+        
+        // Update individual file progress
+        for (let i = 0; i < fileCount; i++) {
+            const fileProgress = document.getElementById(`fileProgress${i}`);
+            if (fileProgress) {
+                const fileProgressValue = Math.min(progress + Math.random() * 10, 100);
+                fileProgress.style.width = fileProgressValue + '%';
+                fileProgress.textContent = Math.round(fileProgressValue) + '%';
+            }
+        }
+    }, 200);
+}
+
+// Format file size
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Drag and drop functionality
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('file');
+
+if (dropZone && fileInput) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    dropZone.addEventListener('drop', handleDrop, false);
+    dropZone.addEventListener('click', () => fileInput.click());
+}
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+function highlight(e) {
+    dropZone.classList.add('border-primary', 'bg-light');
+}
+
+function unhighlight(e) {
+    dropZone.classList.remove('border-primary', 'bg-light');
+}
+
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    fileInput.files = files;
+    selectedFiles = Array.from(files);
+    displayFilePreview();
+}
+</script>
+{% endblock %}
